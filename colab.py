@@ -1,5 +1,3 @@
-
-
 # Load questions from GCS
 import gcsfs
 import json
@@ -13,7 +11,7 @@ with fs.open(bucket_path, 'r') as f:
 questions = [item['question'] for item in data if 'question' in item]
 print(f"✅ Loaded {len(questions)} questions.")
 
-# Setup Dialogflow
+# Setup Dialogflow Agent Assist
 from google.cloud import dialogflow_v2beta1 as dialogflow
 import pandas as pd
 import time
@@ -34,48 +32,44 @@ conversation = conversation_client.create_conversation(
     )
 )
 conversation_name = conversation.name
+print("🧠 Conversation created:", conversation_name)
 
-# Create participant
+# Create a participant
 participants_client = dialogflow.ParticipantsClient()
 participant = participants_client.create_participant(
     parent=conversation_name,
     participant=dialogflow.Participant(role=dialogflow.Participant.Role.END_USER),
 )
 participant_name = participant.name
+print("👤 Participant created:", participant_name)
 
-# Ask questions and collect responses
+# Collect answers
 output_rows = []
 
 for i, question in enumerate(questions):
     print(f"\n🔹 Q{i+1}/{len(questions)}: {question}")
 
-    # Send user message
-    request = dialogflow.AnalyzeContentRequest(
-        participant=participant_name,
-        text_input=dialogflow.TextInput(text=question, language_code="en-US")
+    # Step 1: Create message manually
+    message = dialogflow.Message(
+        content=question,
+        language_code="en-US",
+        participant=participant_name
     )
-    response = participants_client.analyze_content(request=request)
+    created_message = conversation_client.create_message(
+        parent=conversation_name,
+        message=message
+    )
 
-    # Get user message ID directly from response
-    try:
-        user_message_name = response.reply_text_message.name
-    except Exception as e:
-        print(f"❌ Could not get message ID: {e}")
-        output_rows.append({
-            "question": question,
-            "answer": "No message ID found",
-            "source_title": "",
-            "source_uri": ""
-        })
-        continue
+    message_name = created_message.name
+    print(f"📝 Message created: {message_name}")
 
-    # Wait for suggestion generation
+    # Step 2: Wait for AI to process it
     time.sleep(3)
 
-    # Suggest article
+    # Step 3: Get suggestions using message reference
     suggestion = participants_client.suggest_articles(
         participant=participant_name,
-        latest_message=user_message_name
+        latest_message=message_name
     )
 
     if suggestion.article_answers:
