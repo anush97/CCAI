@@ -1,6 +1,6 @@
 
 
-# GCS JSON Load
+# Load questions from GCS
 import gcsfs
 import json
 
@@ -13,7 +13,7 @@ with fs.open(bucket_path, 'r') as f:
 questions = [item['question'] for item in data if 'question' in item]
 print(f"✅ Loaded {len(questions)} questions.")
 
-# Dialogflow Agent Assist setup
+# Setup Dialogflow
 from google.cloud import dialogflow_v2beta1 as dialogflow
 import pandas as pd
 import time
@@ -34,7 +34,6 @@ conversation = conversation_client.create_conversation(
     )
 )
 conversation_name = conversation.name
-print("🧠 Conversation created:", conversation_name)
 
 # Create participant
 participants_client = dialogflow.ParticipantsClient()
@@ -43,48 +42,42 @@ participant = participants_client.create_participant(
     participant=dialogflow.Participant(role=dialogflow.Participant.Role.END_USER),
 )
 participant_name = participant.name
-print("👤 Participant created:", participant_name)
 
-# Ask questions and fetch responses using suggest_articles
+# Ask questions and collect responses
 output_rows = []
 
 for i, question in enumerate(questions):
     print(f"\n🔹 Q{i+1}/{len(questions)}: {question}")
 
-    # Step 1: Send user message
+    # Send user message
     request = dialogflow.AnalyzeContentRequest(
         participant=participant_name,
         text_input=dialogflow.TextInput(text=question, language_code="en-US")
     )
     response = participants_client.analyze_content(request=request)
 
-    # Step 2: Wait and then get latest message
-    time.sleep(3)
-
-    messages = list(conversation_client.list_messages(parent=conversation_name))
-    latest_message = None
-    for msg in sorted(messages, key=lambda m: m.create_time, reverse=True):
-        if msg.participant_role == "END_USER" and msg.content.strip() == question:
-            latest_message = msg.name
-            break
-
-    if not latest_message:
-        print("❌ No user message found. Skipping.")
+    # Get user message ID directly from response
+    try:
+        user_message_name = response.reply_text_message.name
+    except Exception as e:
+        print(f"❌ Could not get message ID: {e}")
         output_rows.append({
             "question": question,
-            "answer": "No message found",
+            "answer": "No message ID found",
             "source_title": "",
             "source_uri": ""
         })
         continue
 
-    # Step 3: Call suggest_articles on the message
+    # Wait for suggestion generation
+    time.sleep(3)
+
+    # Suggest article
     suggestion = participants_client.suggest_articles(
         participant=participant_name,
-        latest_message=latest_message
+        latest_message=user_message_name
     )
 
-    # Step 4: Extract article suggestions
     if suggestion.article_answers:
         top = suggestion.article_answers[0]
         output_rows.append({
@@ -103,7 +96,7 @@ for i, question in enumerate(questions):
         })
         print("⚠️ No article suggestion.")
 
-# Save results to CSV
+# Save to CSV
 df = pd.DataFrame(output_rows)
 df.to_csv("agent_assist_responses.csv", index=False)
 print("\n✅ All responses saved to agent_assist_responses.csv")
