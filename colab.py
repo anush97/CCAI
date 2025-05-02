@@ -1,11 +1,11 @@
-# Install necessary libraries
+# Install required libraries
 !pip install --upgrade gcsfs google-cloud-dialogflow google-auth
 
 # Authenticate
 from google.colab import auth
 auth.authenticate_user()
 
-# Read from GCS
+# GCS JSON Load
 import gcsfs
 import json
 
@@ -18,7 +18,7 @@ with fs.open(bucket_path, 'r') as f:
 questions = [item['question'] for item in data if 'question' in item]
 print(f"Loaded {len(questions)} questions.")
 
-# Agent Assist setup
+# Dialogflow setup
 from google.cloud import dialogflow_v2beta1 as dialogflow
 import pandas as pd
 import time
@@ -29,7 +29,7 @@ conversation_profile_id = "3gEEJo2VQlmrGX1jme06FQ"
 conversation_profile_path = f"projects/{project_id}/locations/{location}/conversationProfiles/{conversation_profile_id}"
 parent = f"projects/{project_id}/locations/{location}"
 
-# Create conversation
+# Create a conversation
 conversation_client = dialogflow.ConversationsClient()
 conversation = conversation_client.create_conversation(
     parent=parent,
@@ -39,42 +39,49 @@ conversation = conversation_client.create_conversation(
     )
 )
 conversation_name = conversation.name
+print("Conversation created:", conversation_name)
 
-# Create participant
+# Create a participant
 participants_client = dialogflow.ParticipantsClient()
 participant = participants_client.create_participant(
     parent=conversation_name,
     participant=dialogflow.Participant(role=dialogflow.Participant.Role.END_USER),
 )
 participant_name = participant.name
+print("Participant created:", participant_name)
 
-# Response collector
+# Process questions one-by-one
 output_rows = []
 
-# Analyze each question
-for question in questions:
-    # Send message
+for i, question in enumerate(questions):
+    print(f"Sending Q{i+1}/{len(questions)}: {question}")
+
+    # Send the question
     request = dialogflow.AnalyzeContentRequest(
         participant=participant_name,
         text_input=dialogflow.TextInput(text=question, language_code="en-US")
     )
-    response = participants_client.analyze_content(request=request)
+    participants_client.analyze_content(request=request)
 
-    # Wait a moment to let the agent reply get stored
-    time.sleep(1.5)
+    # Wait until agent responds (adjust if needed)
+    time.sleep(3)
 
-    # List all messages in the conversation to find the latest agent reply
+    # Get all messages in conversation and fetch the last assistant response
     messages = conversation_client.list_messages(parent=conversation_name)
     latest_reply = ""
-    for msg in messages:
-        if msg.participant_role == dialogflow.Participant.Role.ASSISTANT:
-            latest_reply = msg.content  # last assistant message
 
+    for msg in sorted(messages, key=lambda m: m.create_time, reverse=True):
+        if msg.participant_role == "HUMAN_AGENT_ASSISTANT" and msg.content.strip():
+            latest_reply = msg.content
+            break
+
+    # Record result
     output_rows.append({
         "question": question,
-        "answer": latest_reply if latest_reply else "No reply",
+        "answer": latest_reply if latest_reply else "No reply"
     })
-    print(f"Q: {question}\nA: {latest_reply}\n")
+
+    print(f"A: {latest_reply}\n{'-'*60}")
 
 # Save to CSV
 df = pd.DataFrame(output_rows)
