@@ -1,35 +1,35 @@
-# Step 1: Install necessary libraries
+# Install necessary libraries
 !pip install --upgrade gcsfs google-cloud-dialogflow google-auth
 
-# Step 2: Authenticate to GCP
+# Authenticate
 from google.colab import auth
 auth.authenticate_user()
 
-# Step 3: Read questions from GCS
+# Read from GCS
 import gcsfs
 import json
 
-bucket_path = 'gs://agent_assist_belair_on/non_ambiguous_questions.json'
 fs = gcsfs.GCSFileSystem()
+bucket_path = 'gs://agent_assist_belair_on/non_ambiguous_questions.json'
 
 with fs.open(bucket_path, 'r') as f:
     data = json.load(f)
 
-# Step 4: Extract questions
 questions = [item['question'] for item in data if 'question' in item]
 print(f"Loaded {len(questions)} questions.")
 
-# Step 5: Import Agent Assist client
+# Agent Assist setup
 from google.cloud import dialogflow_v2beta1 as dialogflow
+import pandas as pd
+import time
 
 project_id = "prj-sandbox-ccaas-lab-0"
 location = "global"
 conversation_profile_id = "3gEEJo2VQlmrGX1jme06FQ"
-
 conversation_profile_path = f"projects/{project_id}/locations/{location}/conversationProfiles/{conversation_profile_id}"
 parent = f"projects/{project_id}/locations/{location}"
 
-# Step 6: Create a conversation
+# Create conversation
 conversation_client = dialogflow.ConversationsClient()
 conversation = conversation_client.create_conversation(
     parent=parent,
@@ -39,60 +39,44 @@ conversation = conversation_client.create_conversation(
     )
 )
 conversation_name = conversation.name
-print("Conversation created:", conversation_name)
 
-# Step 7: Create a participant (the customer)
+# Create participant
 participants_client = dialogflow.ParticipantsClient()
 participant = participants_client.create_participant(
     parent=conversation_name,
     participant=dialogflow.Participant(role=dialogflow.Participant.Role.END_USER),
 )
 participant_name = participant.name
-print("Participant created:", participant_name)
 
-# Step 8: Send questions and store responses
-import pandas as pd
-
+# Response collector
 output_rows = []
 
+# Analyze each question
 for question in questions:
+    # Send message
     request = dialogflow.AnalyzeContentRequest(
         participant=participant_name,
         text_input=dialogflow.TextInput(text=question, language_code="en-US")
     )
     response = participants_client.analyze_content(request=request)
 
-    # Try to extract article suggestion (Generative Knowledge Assist)
-    if response.article_suggestion_results:
-        for suggestion in response.article_suggestion_results:
-            output_rows.append({
-                'question': question,
-                'answer': suggestion.article.snippet,
-                'source_title': suggestion.article.title,
-                'source_link': suggestion.article.uri
-            })
-    else:
-        # If no article suggestion, fallback to reply_text or messages
-        fallback_answer = ""
-        if response.reply_text:
-            fallback_answer = response.reply_text
-        elif response.response_messages:
-            texts = []
-            for msg in response.response_messages:
-                if msg.text and msg.text.text:
-                    texts.extend(msg.text.text)
-            fallback_answer = " ".join(texts)
-        else:
-            fallback_answer = "No reply"
+    # Wait a moment to let the agent reply get stored
+    time.sleep(1.5)
 
-        output_rows.append({
-            'question': question,
-            'answer': fallback_answer,
-            'source_title': '',
-            'source_link': ''
-        })
+    # List all messages in the conversation to find the latest agent reply
+    messages = conversation_client.list_messages(parent=conversation_name)
+    latest_reply = ""
+    for msg in messages:
+        if msg.participant_role == dialogflow.Participant.Role.ASSISTANT:
+            latest_reply = msg.content  # last assistant message
 
-# Step 9: Save to CSV
+    output_rows.append({
+        "question": question,
+        "answer": latest_reply if latest_reply else "No reply",
+    })
+    print(f"Q: {question}\nA: {latest_reply}\n")
+
+# Save to CSV
 df = pd.DataFrame(output_rows)
 df.to_csv("agent_assist_responses.csv", index=False)
 print("✅ All responses saved to agent_assist_responses.csv")
