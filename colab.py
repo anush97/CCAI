@@ -15,7 +15,7 @@ with fs.open(bucket_path, 'r') as f:
 questions = [item['question'] for item in data if 'question' in item]
 print(f"✅ Loaded {len(questions)} questions.")
 
-# Dialogflow setup
+# Setup
 project_id = "prj-sandbox-ccaas-lab-0"
 location = "global"
 conversation_profile_id = "3gEEJo2VQlmrGX1jme06FQ"
@@ -43,70 +43,55 @@ participant = participants_client.create_participant(
 participant_name = participant.name
 print("👤 Participant created:", participant_name)
 
-# Process questions
+# Ask questions and collect answers
 output_rows = []
 
 for i, question in enumerate(questions):
     print(f"\n🔹 Q{i+1}/{len(questions)}: {question}")
 
-    # Step 1: Send the question
-    analyze_request = dialogflow.AnalyzeContentRequest(
+    # Send question
+    request = dialogflow.AnalyzeContentRequest(
         participant=participant_name,
         text_input=dialogflow.TextInput(text=question, language_code="en-US")
     )
-    response = participants_client.analyze_content(request=analyze_request)
+    response = participants_client.analyze_content(request=request)
+    time.sleep(1)
 
-    # Step 2: Extract message name from response
+    # Parse full response
     response_dict = MessageToDict(response._pb)
-    try:
-        message_name = response_dict["message"]["name"]
-        print(f"📝 Message ID: {message_name}")
-    except Exception as e:
-        print(f"❌ Could not extract message name: {e}")
-        output_rows.append({
-            "question": question,
-            "answer": "No message ID found",
-            "source_title": "",
-            "source_uri": ""
-        })
-        continue
-
-    # Step 3: Wait and request article suggestion
-    time.sleep(2.5)
-    request = dialogflow.SuggestArticlesRequest()
-    request.participant = participant_name
-    request.latest_message = message_name
 
     try:
-        suggestion = participants_client.suggest_articles(request=request)
+        suggestion = (
+            response_dict["humanAgentSuggestionResults"][0]
+            ["suggestKnowledgeAssistResponse"]
+            ["knowledgeAssistAnswer"]
+            ["suggestedQueryAnswer"]
+        )
 
-        if suggestion.article_answers:
-            top = suggestion.article_answers[0]
-            output_rows.append({
-                "question": question,
-                "answer": top.snippet,
-                "source_title": top.title,
-                "source_uri": top.uri
-            })
-            print(f"✅ Answer: {top.snippet} | Source: {top.title}")
-        else:
-            output_rows.append({
-                "question": question,
-                "answer": "No article suggestion",
-                "source_title": "",
-                "source_uri": ""
-            })
-            print("⚠️ No article suggestion.")
-    except Exception as e:
+        answer = suggestion.get("answerText", "No answer found")
+        sources = suggestion.get("generativeSource", {}).get("snippets", [])
+
+        source_titles = [s.get("title", "") for s in sources]
+        source_uris = [s.get("uri", "") for s in sources]
+
         output_rows.append({
             "question": question,
-            "answer": f"Error fetching suggestion: {str(e)}",
-            "source_title": "",
-            "source_uri": ""
+            "answer": answer,
+            "source_titles": "; ".join(source_titles),
+            "source_uris": "; ".join(source_uris)
         })
-        print(f"❌ Error during suggestion: {e}")
 
-# Save results
+        print(f"✅ Answer: {answer}")
+    except Exception as e:
+        print(f"❌ Could not extract answer: {e}")
+        output_rows.append({
+            "question": question,
+            "answer": "No answer or suggestion available",
+            "source_titles": "",
+            "source_uris": ""
+        })
+
+# Save to CSV
 df = pd.DataFrame(output_rows)
 df.to_csv("agent_assist_responses.csv", index=False)
 print("\n✅ All responses saved to agent_assist_responses.csv")
