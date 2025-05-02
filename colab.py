@@ -72,12 +72,14 @@ for i, question in enumerate(questions):
             "source_uri": ""
         })
         continue
-
     # Step 3: Wait a bit then get suggestions
     time.sleep(2.5)
+    # FIX: Create proper request object for suggest_articles
     suggestion = participants_client.suggest_articles(
-        participant=participant_name,
-        latest_message=message_name
+        request=dialogflow.SuggestArticlesRequest(
+            participant=participant_name,
+            latest_message=message_name
+        )
     )
 
     if suggestion.article_answers:
