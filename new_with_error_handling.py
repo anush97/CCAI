@@ -22,15 +22,18 @@ conversation_profile_id = "3gEEJo2VQlmrGX1jme06FQ"
 conversation_profile_path = f"projects/{project_id}/locations/{location}/conversationProfiles/{conversation_profile_id}"
 parent = f"projects/{project_id}/locations/{location}"
 
-# Split into batches of 20
-batch_size = 20
+# Split into batches of 10
+batch_size = 10
 batches = [questions[i:i + batch_size] for i in range(0, len(questions), batch_size)]
-print(f"📦 Split into {len(batches)} batches of up to {batch_size} questions each.")
+print(f"📦 Split into {len(batches)} batches of {batch_size} questions each.")
 
 # Store all results
 all_results = []
 
 for batch_num, batch_questions in enumerate(batches, start=1):
+    print(f"\n⏳ Waiting 5 seconds before starting batch {batch_num}...")
+    time.sleep(5)
+
     print(f"\n🚀 Starting Batch {batch_num} with {len(batch_questions)} questions")
 
     # Create conversation
@@ -65,7 +68,9 @@ for batch_num, batch_questions in enumerate(batches, start=1):
             text_input=dialogflow.TextInput(text=question, language_code="en-US")
         )
         response = participants_client.analyze_content(request=request)
-        time.sleep(1)
+
+        # Sleep 10 seconds before next question
+        time.sleep(10)
 
         # Parse and handle all 3 scenarios
         response_dict = MessageToDict(response._pb)
@@ -87,8 +92,8 @@ for batch_num, batch_questions in enumerate(batches, start=1):
                     "question": question,
                     "answer_status": "Answer + Sources",
                     "answer": answer_text,
-                    "source_titles": "; ".join([s.get("title", "") for s in sources]),
-                    "source_uris": "; ".join([s.get("uri", "") for s in sources]),
+                    "source_titles": [s.get("title", "") for s in sources],
+                    "source_uris": [s.get("uri", "") for s in sources],
                 })
                 print(f"✅ Answer: {answer_text}")
 
@@ -98,8 +103,8 @@ for batch_num, batch_questions in enumerate(batches, start=1):
                     "question": question,
                     "answer_status": "Sources Only",
                     "answer": "No answerText, but related documents found.",
-                    "source_titles": "; ".join([s.get("title", "") for s in sources]),
-                    "source_uris": "; ".join([s.get("uri", "") for s in sources]),
+                    "source_titles": [s.get("title", "") for s in sources],
+                    "source_uris": [s.get("uri", "") for s in sources],
                 })
                 print("⚠️ No answer, but sources found.")
 
@@ -113,11 +118,24 @@ for batch_num, batch_questions in enumerate(batches, start=1):
                 "question": question,
                 "answer_status": "No Response",
                 "answer": "No response from Agent Assist.",
-                "source_titles": "",
-                "source_uris": ""
+                "source_titles": [],
+                "source_uris": []
             })
 
-# Save to CSV
+# Save results
 df = pd.DataFrame(all_results)
+
+# Save to CSV
 df.to_csv("agent_assist_batched_responses.csv", index=False)
-print("\n✅ All responses saved to agent_assist_batched_responses.csv")
+
+# Save to Excel
+df.to_excel("agent_assist_batched_responses.xlsx", index=False)
+
+# Save to JSON
+with open("agent_assist_batched_responses.json", "w", encoding="utf-8") as f:
+    json.dump(all_results, f, indent=2, ensure_ascii=False)
+
+print("\n✅ Responses saved to:")
+print("📄 agent_assist_batched_responses.csv")
+print("📘 agent_assist_batched_responses.xlsx")
+print("🧾 agent_assist_batched_responses.json")
