@@ -34,7 +34,7 @@ for batch_num, batch_questions in enumerate(batches, start=1):
     print(f"\n⏳ Waiting 5 seconds before starting batch {batch_num}...")
     time.sleep(5)
 
-    print(f"\n🚀 Starting Batch {batch_num} with {len(batch_questions)} questions")
+    print(f"\n🚀 Starting batch {batch_num}...")
 
     # Create conversation
     conversation_client = dialogflow.ConversationsClient()
@@ -46,7 +46,7 @@ for batch_num, batch_questions in enumerate(batches, start=1):
         )
     )
     conversation_name = conversation.name
-    print(f"🧠 Conversation {batch_num} created: {conversation_name}")
+    print(f"🧠 Conversation created: {conversation_name}")
 
     # Create participant
     participants_client = dialogflow.ParticipantsClient()
@@ -86,25 +86,27 @@ for batch_num, batch_questions in enumerate(batches, start=1):
             answer_text = suggestion.get("answerText", "")
             sources = suggestion.get("generativeSource", {}).get("snippets", [])
 
+            # Format sources
+            source_titles = "\n".join([s.get("title", "") for s in sources])
+            source_uris = "\n".join([s.get("uri", "") for s in sources])
+
             if answer_text:
                 all_results.append({
-                    "batch": batch_num,
                     "question": question,
                     "answer_status": "Answer + Sources",
                     "answer": answer_text,
-                    "source_titles": [s.get("title", "") for s in sources],
-                    "source_uris": [s.get("uri", "") for s in sources],
+                    "source_titles": source_titles,
+                    "source_uris": source_uris,
                 })
                 print(f"✅ Answer: {answer_text}")
 
             elif sources:
                 all_results.append({
-                    "batch": batch_num,
                     "question": question,
                     "answer_status": "Sources Only",
                     "answer": "No answerText, but related documents found.",
-                    "source_titles": [s.get("title", "") for s in sources],
-                    "source_uris": [s.get("uri", "") for s in sources],
+                    "source_titles": source_titles,
+                    "source_uris": source_uris,
                 })
                 print("⚠️ No answer, but sources found.")
 
@@ -114,28 +116,27 @@ for batch_num, batch_questions in enumerate(batches, start=1):
         except Exception as e:
             print(f"❌ No response: {e}")
             all_results.append({
-                "batch": batch_num,
                 "question": question,
                 "answer_status": "No Response",
                 "answer": "No response from Agent Assist.",
-                "source_titles": [],
-                "source_uris": []
+                "source_titles": "",
+                "source_uris": ""
             })
 
 # Save results
 df = pd.DataFrame(all_results)
 
 # Save to CSV
-df.to_csv("agent_assist_batched_responses.csv", index=False)
+df.to_csv("agent_assist_responses.csv", index=False)
 
 # Save to Excel
-df.to_excel("agent_assist_batched_responses.xlsx", index=False)
+df.to_excel("agent_assist_responses.xlsx", index=False)
 
 # Save to JSON
-with open("agent_assist_batched_responses.json", "w", encoding="utf-8") as f:
+with open("agent_assist_responses.json", "w", encoding="utf-8") as f:
     json.dump(all_results, f, indent=2, ensure_ascii=False)
 
-print("\n✅ Responses saved to:")
-print("📄 agent_assist_batched_responses.csv")
-print("📘 agent_assist_batched_responses.xlsx")
-print("🧾 agent_assist_batched_responses.json")
+print("\n✅ Responses saved as:")
+print("📄 CSV: agent_assist_responses.csv")
+print("📘 Excel: agent_assist_responses.xlsx")
+print("🧾 JSON: agent_assist_responses.json")
