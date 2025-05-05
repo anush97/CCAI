@@ -31,10 +31,10 @@ print(f"📦 Split into {len(batches)} batches of {batch_size} questions each.")
 all_results = []
 
 for batch_num, batch_questions in enumerate(batches, start=1):
-    print(f"\n⏳ Waiting 5 seconds before starting batch {batch_num}...")
+    print(f"\n📦 ===== Starting Batch {batch_num} ({len(batch_questions)} questions) =====")
     time.sleep(5)
 
-    print(f"\n🚀 Starting batch {batch_num}...")
+    print(f"⏳ Creating new conversation for Batch {batch_num}...")
 
     # Create conversation
     conversation_client = dialogflow.ConversationsClient()
@@ -46,7 +46,7 @@ for batch_num, batch_questions in enumerate(batches, start=1):
         )
     )
     conversation_name = conversation.name
-    print(f"🧠 Conversation created: {conversation_name}")
+    print(f"🧠 New Conversation created: {conversation_name}")
 
     # Create participant
     participants_client = dialogflow.ParticipantsClient()
@@ -57,10 +57,12 @@ for batch_num, batch_questions in enumerate(batches, start=1):
     participant_name = participant.name
     print(f"👤 Participant created: {participant_name}")
 
-    # Ask questions in batch
+    # Process each question in the batch
     for i, question in enumerate(batch_questions):
         global_q_index = (batch_num - 1) * batch_size + i + 1
-        print(f"\n🔹 Q{global_q_index}: {question}")
+        print(f"\n🔹 Asking Q{global_q_index}/{len(questions)}: {question}")
+        print("⏳ Waiting for 10 seconds before sending...")
+        time.sleep(10)
 
         # Send the question
         request = dialogflow.AnalyzeContentRequest(
@@ -69,10 +71,7 @@ for batch_num, batch_questions in enumerate(batches, start=1):
         )
         response = participants_client.analyze_content(request=request)
 
-        # Sleep 10 seconds before next question
-        time.sleep(10)
-
-        # Parse and handle all 3 scenarios
+        # Parse the response
         response_dict = MessageToDict(response._pb)
 
         try:
@@ -86,7 +85,7 @@ for batch_num, batch_questions in enumerate(batches, start=1):
             answer_text = suggestion.get("answerText", "")
             sources = suggestion.get("generativeSource", {}).get("snippets", [])
 
-            # Format sources
+            # Format sources for newline-separated strings
             source_titles = "\n".join([s.get("title", "") for s in sources])
             source_uris = "\n".join([s.get("uri", "") for s in sources])
 
