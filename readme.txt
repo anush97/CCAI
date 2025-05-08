@@ -79,3 +79,9 @@ Why Extract Both Answers & Sources?
 * We aim to evaluate both the generated content and the supporting documentation
 * Prevents backend throttling
 * Helps validate whether answers are grounded in known knowledge base entries
+
+###Links -
+
+Links-  https://cloud.google.com/python/docs/reference/dialogflow/1.0.0/dialogflow_v2beta1  https://cloud.google.com/python/docs/reference/dialogflow/2.19.0/google.cloud.dialogflow_v2beta1.services.conversations.ConversationsClient
+
+https://cloud.google.com/python/docs/reference/dialogflow/2.15.1/google.cloud.dialogflow_v2.services.participants.ParticipantsClient  
