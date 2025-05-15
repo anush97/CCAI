@@ -1,33 +1,39 @@
 import pandas as pd
+import json
 
 # File paths
 response_file = "agent_assist_responses.xlsx"
-question_id_file = "non_ambiguous_questions.xlsx"
+question_id_file = "non_ambiguous_questions.json"
 
-# Load Excel files
+# Load Excel responses
 responses_df = pd.read_excel(response_file)
-question_ids_df = pd.read_excel(question_id_file)
 
-# Standardize question column names
+# Load JSON with question IDs
+with open(question_id_file, 'r', encoding='utf-8') as f:
+    questions_data = json.load(f)
+
+question_id_df = pd.DataFrame(questions_data)
+
+# Normalize question text for matching
 responses_df["question_clean"] = responses_df["question"].str.strip().str.lower()
-question_ids_df["question_clean"] = question_ids_df["Question"].str.strip().str.lower()
+question_id_df["question_clean"] = question_id_df["Question"].str.strip().str.lower()
 
-# Merge based on cleaned question
+# Merge by normalized question text
 merged_df = pd.merge(
     responses_df,
-    question_ids_df[["questionId", "question_clean"]],
+    question_id_df[["questionId", "question_clean"]],
     on="question_clean",
     how="left"
 )
 
-# Check for unmatched questions
+# Optional: check for unmatched entries
 missing = merged_df[merged_df["questionId"].isnull()]
 if not missing.empty:
-    print("⚠️ Warning: Some questions could not be matched to a questionId:")
+    print("⚠️ Warning: Some questions couldn't be matched to a questionId:")
     print(missing["question"].tolist())
 
-# Normalize rows per source title/URI
-normalized_rows = []
+# Expand rows per source title/uri pair
+expanded_rows = []
 
 for _, row in merged_df.iterrows():
     qid = row["questionId"]
@@ -42,7 +48,7 @@ for _, row in merged_df.iterrows():
     uris += [""] * (max_len - len(uris))
 
     for title, uri in zip(titles, uris):
-        normalized_rows.append({
+        expanded_rows.append({
             "question_id": qid,
             "question": question,
             "answer_status": answer_status,
@@ -52,7 +58,7 @@ for _, row in merged_df.iterrows():
         })
 
 # Create final DataFrame
-final_df = pd.DataFrame(normalized_rows)
+final_df = pd.DataFrame(expanded_rows)
 
 # Save to Excel
 final_df.to_excel("agent_assist_final_expanded.xlsx", index=False)
