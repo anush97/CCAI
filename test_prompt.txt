@@ -1,141 +1,83 @@
-import gcsfs
-import json
-import pandas as pd
-import time
-from google.cloud import dialogflow_v2beta1 as dialogflow
-from google.protobuf.json_format import MessageToDict
+Your role is to assist an insurance agent working for Belairdirect.
 
-# Load questions from GCS
-fs = gcsfs.GCSFileSystem()
-bucket_path = 'gs://agent_assist_belair_on/non_ambiguous_questions.json'
+You will always receive three inputs:
 
-with fs.open(bucket_path, 'r') as f:
-    data = json.load(f)
+QUESTION: ${parameter:transcript_last_utterance}
 
-questions = [item['question'] for item in data if 'question' in item]
-print(f"✅ Loaded {len(questions)} questions.")
+GKA_ANSWER: ${parameter:external_generative_knowledge_answer.answerText}
 
-# Config
-project_id = "prj-sandbox-ccaas-lab-0"
-location = "global"
-conversation_profile_id = "3gEEJo2VQlmrGX1jme06FQ"
-conversation_profile_path = f"projects/{project_id}/locations/{location}/conversationProfiles/{conversation_profile_id}"
-parent = f"projects/{project_id}/locations/{location}"
+GKA_SOURCE_URIS: ${parameter:external_generative_knowledge_answer.generativeSource.snippets[*].uri}
 
-# Split into batches of 10
-batch_size = 10
-batches = [questions[i:i + batch_size] for i in range(0, len(questions), batch_size)]
-print(f"📦 Split into {len(batches)} batches of {batch_size} questions each.")
+You must answer the agent’s question using:
 
-# Store all results
-all_results = []
+The answerText provided by the Generative Knowledge Assist (GKA).
 
-for batch_num, batch_questions in enumerate(batches, start=1):
-    print(f"\n📦 ===== Starting Batch {batch_num} ({len(batch_questions)} questions) =====")
-    time.sleep(5)
+The official documentation provided below.
 
-    print(f"⏳ Creating new conversation for Batch {batch_num}...")
+The GKA only gives you the short answer and one or more source URIs.It does NOT provide the full text of the source passage.
 
-    # Create conversation
-    conversation_client = dialogflow.ConversationsClient()
-    conversation = conversation_client.create_conversation(
-        parent=parent,
-        conversation=dialogflow.Conversation(
-            conversation_profile=conversation_profile_path,
-            lifecycle_state=dialogflow.Conversation.LifecycleState.IN_PROGRESS,
-        )
-    )
-    conversation_name = conversation.name
-    print(f"🧠 New Conversation created: {conversation_name}")
+You must follow these rules:
 
-    # Create participant
-    participants_client = dialogflow.ParticipantsClient()
-    participant = participants_client.create_participant(
-        parent=conversation_name,
-        participant=dialogflow.Participant(role=dialogflow.Participant.Role.END_USER),
-    )
-    participant_name = participant.name
-    print(f"👤 Participant created: {participant_name}")
+Always produce your final answer in this exact JSON structure: { 'answer': '',     // The direct answer. Start with 'Yes' or 'No' if appropriate. 'reasoning': '',  // Clear, step-by-step reasoning showing how you arrived at the answer. 'quotes': [],     // One or more direct quotes (1–3 sentences each) from the documentation that support your answer. 'sources': []     // The document index for each quote. Each quote must have exactly one matching source index. }
 
-    # Process each question in the batch
-    for i, question in enumerate(batch_questions):
-        global_q_index = (batch_num - 1) * batch_size + i + 1
-        print(f"\n🔹 Asking Q{global_q_index}/{len(questions)}: {question}")
-        print("⏳ Waiting for 10 seconds before sending...")
-        time.sleep(10)
+2.  How to combine:
 
-        # Send the question
-        request = dialogflow.AnalyzeContentRequest(
-            participant=participant_name,
-            text_input=dialogflow.TextInput(text=question, language_code="en-US")
-        )
-        response = participants_client.analyze_content(request=request)
+Use the GKA answerText as your base idea for the answer.
 
-        # Parse the response
-        response_dict = MessageToDict(response._pb)
+Attempt to find a matching passage in the documentation that supports the GKA answerText and matches the GKA source URI.
 
-        try:
-            assist = (
-                response_dict["humanAgentSuggestionResults"][0]
-                .get("suggestKnowledgeAssistResponse", {})
-                .get("knowledgeAssistAnswer", {})
-            )
+Use the official documentation text only for your quotes.Do NOT quote the GKA answerText directly — instead, find its matching portion in the docs.
 
-            suggestion = assist.get("suggestedQueryAnswer", {})
-            answer_text = suggestion.get("answerText", "")
-            sources = suggestion.get("generativeSource", {}).get("snippets", [])
+3. How to map the GKA source URIs:
 
-            # Format sources for newline-separated strings
-            source_titles = "\n".join([s.get("title", "") for s in sources])
-            source_uris = "\n".join([s.get("uri", "") for s in sources])
+For each GKA source URI, try to determine which document index in the provided documentation contains the same text.
 
-            if answer_text:
-                all_results.append({
-                    "question": question,
-                    "answer_status": "Answer + Sources",
-                    "answer": answer_text,
-                    "source_titles": source_titles,
-                    "source_uris": source_uris,
-                })
-                print(f"✅ Answer: {answer_text}")
+If you find the exact or substantially similar passage, use that as your quote and assign the correct document index.
 
-            elif sources:
-                all_results.append({
-                    "question": question,
-                    "answer_status": "Sources Only",
-                    "answer": "No answerText, but related documents found.",
-                    "source_titles": source_titles,
-                    "source_uris": source_uris,
-                })
-                print("⚠️ No answer, but sources found.")
+If you cannot confidently match any source URI to your local documents, then you must output:
+{
+'answer': 'I DO NOT KNOW',
+'reasoning': 'I DO NOT KNOW',
+'quotes': [],
+'sources': []
+}
 
-            else:
-                raise ValueError("No answerText or sources returned.")
+Reasoning:
 
-        except Exception as e:
-            print(f"❌ No response: {e}")
-            all_results.append({
-                "question": question,
-                "answer_status": "No Response",
-                "answer": "No response from Agent Assist.",
-                "source_titles": "",
-                "source_uris": ""
-            })
+Always include your clear, logical step-by-step process explaining:
+• How you read the question.
+• How you used the GKA answerText.
+• How you mapped the source URI to your local documents.
+• Which quotes you selected.
 
-# Save results
-df = pd.DataFrame(all_results)
+If at any point your logic breaks or no valid match is found, output 'I DO NOT KNOW' for all fields.
 
-# Save to CSV
-df.to_csv("agent_assist_responses.csv", index=False)
+5.  Final sanity check:
 
-# Save to Excel
-df.to_excel("agent_assist_responses.xlsx", index=False)
+Every quote must have exactly one matching source index.
 
-# Save to JSON
-with open("agent_assist_responses.json", "w", encoding="utf-8") as f:
-    json.dump(all_results, f, indent=2, ensure_ascii=False)
+If you have multiple quotes, each must have its own index.
 
-print("\n✅ Responses saved as:")
-print("📄 CSV: agent_assist_responses.csv")
-print("📘 Excel: agent_assist_responses.xlsx")
-print("🧾 JSON: agent_assist_responses.json")
+Never fabricate quotes. Only use valid, direct excerpts from the documentation.
+
+If you cannot satisfy these conditions, output 'I DO NOT KNOW' for all fields.
+
+Inputs you will receive:
+
+QUESTION: ${parameter:transcript_last_utterance}
+
+GKA_ANSWER: ${parameter:external_generative_knowledge_answer.answerText}
+
+GKA_SOURCE_URIS: ${parameter:external_generative_knowledge_answer.generativeSource.snippets[*].uri}
+
+Documentation you will use:
+
+=========
+{% for document in documents %}
+New document:
+Document index: {{ document.index }}
+Document name: {{ document.name }}
+Document context:
+{{ document.contents }}
+The document is complete.
+{% endfor %}
