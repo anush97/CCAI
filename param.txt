@@ -1,0 +1,3 @@
+external_generative_knowledge_snippets	String	✅ Yes
+external_generative_knowledge_snippet_uris	String	✅ Yes
+external_generative_knowledge_snippet_titles	String	✅ Yes
