@@ -2,12 +2,12 @@ from typing import Any, Dict
 
 def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform the raw GKA output into the strict JSON format and return as 'response'.
+    Transform the raw GKA output into the strict JSON format.
     """
     gka_response = context["tools"]["AQ&A Data Store"]
 
     suggestion = (
-        gka_response["humanAgentSuggestionResults"][0]
+        gka_response.get("humanAgentSuggestionResults", [{}])[0]
         .get("suggestKnowledgeAssistResponse", {})
         .get("knowledgeAssistAnswer", {})
         .get("suggestedQueryAnswer", {})
@@ -20,17 +20,17 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
     sources_list = []
 
     for idx, s in enumerate(snippets):
-        quote_text = s.get("snippet", "")
-        quote_url = s.get("uri", "")
-        quote_name = s.get("title", "")
+        quote_text = s.get("snippet", "").strip()
+        quote_url = s.get("uri", "").strip()
+        quote_name = s.get("title", "").strip()
 
-        quotes_list.append({
-            "quote": quote_text,
-            "url": quote_url,
-            "name": quote_name
-        })
-
-        sources_list.append(idx + 1)
+        if quote_text:
+            quotes_list.append({
+                "quote": quote_text,
+                "url": quote_url or "",
+                "name": quote_name or ""
+            })
+            sources_list.append(idx + 1)
 
     if not answer_text:
         answer_text = "I DO NOT KNOW"
@@ -40,12 +40,9 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
 
     final_json = {
         "answer": answer_text,
-        "reasoning": "",  # Let the LLM fill this part using instructions
+        "reasoning": "Use the AQ&A Data Store to verify the answer with supporting snippets. Explain step-by-step in final LLM output.",  # LLM will expand this
         "quotes": quotes_list,
         "sources": sources_list
     }
 
-    # ✅ Wrap it under 'response' to make sure the Playbook uses it!
-    return {
-        "response": final_json
-    }
+    return final_json
