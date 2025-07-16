@@ -1,9 +1,6 @@
 from typing import Any, Dict
 
 def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Transform the raw GKA output into the strict JSON format and return as 'response'.
-    """
     gka_response = context["tools"]["AQ&A Data Store"]
 
     suggestion = (
@@ -18,18 +15,20 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
 
     quotes_list = []
     sources_list = []
+    debug_info = []  # <-- collect debug info here
 
     for idx, s in enumerate(snippets):
         quote_text = s.get("snippet", "")
         quote_url = s.get("uri", "")
         quote_name = s.get("title", "")
 
+        debug_info.append(f"Snippet {idx+1}: {quote_text[:30]}... | {quote_url} | {quote_name}")  # shorten text
+
         quotes_list.append({
             "quote": quote_text,
             "url": quote_url,
             "name": quote_name
         })
-
         sources_list.append(idx + 1)
 
     if not answer_text:
@@ -40,12 +39,12 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
 
     final_json = {
         "answer": answer_text,
-        "reasoning": "",  # Let the LLM fill this part using instructions
+        "reasoning": "",  # LLM will fill
         "quotes": quotes_list,
         "sources": sources_list
     }
 
-    # Wrap it under 'response' to make sure the Playbook uses it!
     return {
-        "response": final_json
+        "response": final_json,
+        "debug": debug_info  # <-- appears in the final output JSON
     }
