@@ -24,19 +24,11 @@
   ],
   "sources": []
 }
-For answer: 
-Use the short answer returned by the Generative Knowledge Assist only if you can validate it using the supporting quotes.
-If you cannot fully validate it, respond with "I DO NOT KNOW".
-For reasoning: Explain step-by-step how you validated the answer using the question, GKA output, snippets, and documentation. Do not answer in first person, but rather third person just explaining how you did used to the answer and why the answer is valid.
-For quotes: it is a list of quote (which was used for the answer), url of the document and name of the document. Include ALL valid snippets returned by GKA. Do NOT limit them. If no valid snippets, use [].
-It should be in the following format-
-{
-  "quote": "<snippet text>",
-  "url": "<snippet URI>",
-  "name": "<snippet title>"
-}
-
-For sources: they are the list of all the URLs of the documents that were chosen to formulate the answer. If no valid sources, use [].
+For answer: Provide the verified final answer, or 'I DO NOT KNOW'.
+For reasoning: Explain step-by-step how you validated the answer using the question, GKA output, snippets, and documentation.
+For quotes: Include ALL valid snippets returned by GKA. Do NOT limit them. If no valid snippets, use [].
+For sources: Include a matching index for each quote. If no valid sources, use [].
 Never hallucinate or fabricate quotes or sources.
 Never add text outside this JSON block.
 Always use the transformed JSON from the Code Interpreter as the final answer.
+
