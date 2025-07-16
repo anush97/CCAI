@@ -7,7 +7,7 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
     gka_response = context["tools"]["AQ&A Data Store"]
 
     suggestion = (
-        gka_response["humanAgentSuggestionResults"][0]
+        gka_response.get("humanAgentSuggestionResults", [{}])[0]
         .get("suggestKnowledgeAssistResponse", {})
         .get("knowledgeAssistAnswer", {})
         .get("suggestedQueryAnswer", {})
@@ -20,19 +20,17 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
     sources_list = []
 
     for idx, s in enumerate(snippets):
-        quote_text = s.get("snippet", "").strip()
-        meta = s.get("documentInfo", {})  # Some APIs wrap uri and title under documentInfo or metadata
+        quote_text = s.get("snippet", "") or s.get("passage", "")
+        quote_url = s.get("uri", "") or s.get("sourceUri", "")
+        quote_name = s.get("title", "") or s.get("documentTitle", "")
 
-        quote_url = meta.get("uri") or s.get("uri", "")
-        quote_name = meta.get("title") or s.get("title", "")
-
-        quotes_list.append({
-            "quote": quote_text,
-            "url": quote_url,
-            "name": quote_name
-        })
-
-        sources_list.append(idx + 1)
+        if quote_text:
+            quotes_list.append({
+                "quote": quote_text,
+                "url": quote_url,
+                "name": quote_name
+            })
+            sources_list.append(idx + 1)
 
     if not answer_text:
         answer_text = "I DO NOT KNOW"
