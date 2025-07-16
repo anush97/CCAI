@@ -24,15 +24,14 @@
   ],
   "sources": []
 }
-
-- For **answer**: Provide the verified final answer, or 'I DO NOT KNOW'.
-- For **reasoning**: Explain step-by-step how you validated the answer using the question, GKA output, snippets, URIs, titles, and documentation. Write in **neutral third-person** (e.g., "The answer is confirmed because..."). Do **not** use first or second person voice.
-- For **quotes**: Include **ALL valid snippets** returned by GKA. Do NOT limit them. Each quote must have:
-   - `"quote"`: the snippet text
-   - `"url"`: source link
-   - `"name"`: document title
-   - If no valid snippets exist, use `[]`.
-- For **sources**: Include a **matching index** for each quote. If no valid sources, use `[]`.
-- Never hallucinate or fabricate quotes or sources.
-- Never add text outside this JSON block.
-- Always use the transformed JSON from the Code Interpreter as the final answer.
+For answer: Provide the verified final answer, or 'I DO NOT KNOW'.
+For reasoning: Explain step-by-step how you validated the answer using the question, GKA output, snippets, URIs, titles, and documentation. Write in neutral third-person (e.g., "The answer is confirmed because...").
+For quotes: Include ALL valid snippets returned by GKA. Do NOT limit them. Each quote must have:
+   "quote": the snippet text
+   "url": source link
+   "name": document title
+If no valid snippets exist, use `[]`.
+For sources: Include a matching index for each quote. If no valid sources, use `[]`.
+Never hallucinate or fabricate quotes or sources.
+Never add text outside this JSON block.
+Always use the transformed JSON from the Code Interpreter as the final answer.
