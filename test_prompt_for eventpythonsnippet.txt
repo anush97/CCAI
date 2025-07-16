@@ -1,0 +1,27 @@
+- Use the short answer and snippets from AQ&A Data Store.
+- Do not invent any quotes.
+- Generate reasoning step-by-step for how each snippet supports the answer.
+- Return ONLY in this JSON format:
+
+{
+  "answer": "",
+  "reasoning": "",
+  "quotes": [
+    {
+      "quote": "",
+      "url": "",
+      "name": ""
+    }
+  ],
+  "sources": []
+}
+
+- If not valid, return:
+{
+  "answer": "I DO NOT KNOW",
+  "reasoning": "I DO NOT KNOW",
+  "quotes": [],
+  "sources": []
+}
+
+Never add anything outside the JSON.
