@@ -1,10 +1,14 @@
 from typing import Any, Dict
+import json
 
-def transform_gka_output(context: Dict[str, Any]) -> Dict[str, Any]:
+def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform the raw GKA output into the strict JSON format.
+    Transform the raw GKA output into the strict JSON format and return it as 'response'.
     """
-    gka_response = context["tools"]["AQ&A Data Store"]
+    gka_response = context["tools"].get("AQ&A Data Store", {})
+
+    # DEBUG: Uncomment to inspect actual payload if things go wrong
+    # print("🔍 Full GKA Response:\n", json.dumps(gka_response, indent=2))
 
     suggestion = (
         gka_response.get("humanAgentSuggestionResults", [{}])[0]
@@ -14,7 +18,15 @@ def transform_gka_output(context: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     answer_text = suggestion.get("answerText", "").strip()
+
+    # Try standard path
     snippets = suggestion.get("generativeSource", {}).get("snippets", [])
+    
+    # Fallback: Try alternative nesting if empty
+    if not snippets:
+        generative_sources = suggestion.get("generativeSources", [])
+        if generative_sources:
+            snippets = generative_sources[0].get("snippets", [])
 
     quotes_list = []
     sources_list = []
@@ -24,11 +36,12 @@ def transform_gka_output(context: Dict[str, Any]) -> Dict[str, Any]:
         quote_url = s.get("uri", "").strip()
         quote_name = s.get("title", "").strip()
 
-        if quote_text:
+        # Only include quotes with at least the quote text and uri
+        if quote_text and quote_url:
             quotes_list.append({
                 "quote": quote_text,
-                "url": quote_url or "",
-                "name": quote_name or ""
+                "url": quote_url,
+                "name": quote_name
             })
             sources_list.append(idx + 1)
 
@@ -40,9 +53,11 @@ def transform_gka_output(context: Dict[str, Any]) -> Dict[str, Any]:
 
     final_json = {
         "answer": answer_text,
-        "reasoning": "I used the AQ&A Data Store snippets and quotes to verify the answer step-by-step.",  # Will be expanded by LLM
+        "reasoning": "",  # Let the LLM complete this based on provided instructions
         "quotes": quotes_list,
         "sources": sources_list
     }
 
-    return final_json
+    return {
+        "response": final_json
+    }
