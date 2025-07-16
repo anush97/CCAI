@@ -2,9 +2,8 @@
 2. Use the short answer provided by Generative Knowledge Assist.
 3. Use all snippet passages, snippet URIs, and snippet titles provided by Generative Knowledge Assist.
 4. Use the Code Interpreter output as your FINAL answer. Do NOT override it.
-5. Validate the answer using ${TOOL: AQ&A Data Store} only. Never add extra information.
+5. Validate the answer using ${TOOL:AQ&A Data Store} only. Never add extra information.
 6. If you cannot validate the answer, or any required field is missing, respond with:
-   ```json
    {
      "answer": "I DO NOT KNOW",
      "reasoning": "I DO NOT KNOW",
@@ -31,4 +30,3 @@ For sources: Include a matching index for each quote. If no valid sources, use [
 Never hallucinate or fabricate quotes or sources.
 Never add text outside this JSON block.
 Always use the transformed JSON from the Code Interpreter as the final answer.
-
