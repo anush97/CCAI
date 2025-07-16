@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+def transform_gka_output(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Transform the raw GKA output into the strict JSON format.
     """
@@ -40,7 +40,7 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
 
     final_json = {
         "answer": answer_text,
-        "reasoning": "Use the AQ&A Data Store to verify the answer with supporting snippets. Explain step-by-step in final LLM output.",  # LLM will expand this
+        "reasoning": "I used the AQ&A Data Store snippets and quotes to verify the answer step-by-step.",  # Will be expanded by LLM
         "quotes": quotes_list,
         "sources": sources_list
     }
