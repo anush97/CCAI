@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform the raw GKA output into the strict JSON format.
+    Transform the raw GKA output into the strict JSON format and return as 'response'.
     """
     gka_response = context["tools"]["AQ&A Data Store"]
 
@@ -40,9 +40,12 @@ def transform_gka_output(event: Dict[str, Any], context: Dict[str, Any]) -> Dict
 
     final_json = {
         "answer": answer_text,
-        "reasoning": "",  # Let the LLM do it
+        "reasoning": "",  # Let the LLM fill this part using instructions
         "quotes": quotes_list,
         "sources": sources_list
     }
 
-    return final_json
+    # ✅ Wrap it under 'response' to make sure the Playbook uses it!
+    return {
+        "response": final_json
+    }
