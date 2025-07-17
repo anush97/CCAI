@@ -1,27 +1,24 @@
-TASK: Using the agent’s most recent message, query the connected Generative Knowledge Assist (GKA) knowledge base and return the response in the following strict JSON format:
+Given the following user query: ${parameter:transcript_last_utterance}, generate a structured JSON response that answers the question using only the information from the knowledge base via GKA.
 
+Your output must strictly follow this JSON format:
 {
-  "answer": "<short and precise answer text>",
-  "reasoning": "<step-by-step neutral explanation derived from the snippet(s) showing why the answer is valid>",
+  "answer": "<Concise answer to the question based on retrieved data>",
+  "reasoning": "<Explain how the provided answer was derived from the source text>",
   "quotes": [
     {
-      "quote": "<verbatim passage from the GKA snippet>",
-      "url": "<original source URL>",
-      "name": "<title of the source>"
+      "quote": "<Direct quote from the source that supports the answer>",
+      "url": "<URL to the source document>",
+      "name": "<Name/title of the source>"
     }
   ],
-  "sources": [1]
+  "sources": [
+    "<Name/title of the source used>"
+  ]
 }
 
-INSTRUCTIONS:
-- Use ${parameter:transcript_last_utterance} as the question.
-- Always extract GKA snippets, and validate the final answer using them.
-- The answer must come directly from the GKA snippet(s) and be clearly verifiable.
-- If no snippet is found or answer is not clearly supported, return:
-  {
-    "answer": "I DO NOT KNOW",
-    "reasoning": "I DO NOT KNOW",
-    "quotes": [],
-    "sources": []
-  }
-- Return **only the JSON**, no extra commentary or markdown.
+Guidelines:
+- Do NOT invent information. Use only content retrieved from GKA results.
+- Prefer quoting exact sentences or phrases from the source.
+- Reasoning must be objective, and explicitly refer to the quote used.
+- Include only one or two quotes and sources for clarity.
+- Format must be valid JSON. Do not include markdown, code blocks, or commentary outside the JSON.
